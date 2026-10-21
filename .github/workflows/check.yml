@@ -1,0 +1,32 @@
+---
+name: Comprobar los datos
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  datos:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: GitHub Checkout
+        uses: actions/checkout@v7
+
+      # mrcdd.json es lo que usan otras aplicaciones; mrcdd.yml, lo que se
+      # edita. Con la misma versión de js-yaml que carga la herramienta, los
+      # dos tienen que decir lo mismo.
+      - name: mrcdd.json coincide con mrcdd.yml
+        run: |
+          npx --yes js-yaml@4.1.0 mrcdd.yml | jq -S . > /tmp/desde-yml.json
+          jq -S . mrcdd.json > /tmp/json.json
+          if ! cmp -s /tmp/desde-yml.json /tmp/json.json; then
+            echo "::error file=mrcdd.json::mrcdd.json no coincide con mrcdd.yml. Regenéralo con: npx js-yaml@4.1.0 mrcdd.yml > mrcdd.json"
+            diff /tmp/desde-yml.json /tmp/json.json | head -40
+            exit 1
+          fi

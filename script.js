@@ -36,6 +36,7 @@ function createCheckbox(area, competencia, etapa, nivel, indicador) {
     'id',
     `${competencia.competencia}.${nivel.nivel}.${indicador.indicador}`
   );
+  checkbox.checked = selected.has(checkbox.name);
 
   return checkbox;
 }
@@ -161,6 +162,51 @@ function createRow(area, competencia, etapa, nivel, indicador, lastCells) {
 let data;
 let tableBody;
 
+// Indicadores marcados, por su identificador («1.1.A1.2»). Viven fuera de la
+// tabla, que se vuelve a dibujar al buscar o al filtrar por nivel: así no se
+// pierde lo marcado a mano, ni lo que el filtro esconde.
+const selected = new Set();
+
+// Todos los indicadores, en el orden del marco. Generar y compartir salen de
+// aquí, y no de la tabla visible.
+let entries = [];
+
+function indexEntries(areas) {
+  const out = [];
+  for (const area of areas) {
+    for (const competencia of area.competencias) {
+      for (const etapa of competencia.etapas) {
+        for (const nivel of etapa.niveles) {
+          for (const indicador of nivel.indicadores_logro) {
+            out.push({
+              id: `${competencia.competencia}.${nivel.nivel}.${indicador.indicador}`,
+              area,
+              competencia,
+              nivel,
+              indicador,
+            });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Los marcados, en el orden del marco.
+function selectedEntries() {
+  return entries.filter(entry => selected.has(entry.id));
+}
+
+// La selección que trae la dirección (`?c=1.1.A1.1|1.2.A2.3`).
+function readSelection() {
+  const value = new URLSearchParams(window.location.search).get('c');
+  if (!value) return;
+  value.split('|').forEach(id => {
+    if (/^\d\.\d\.[ABC][12]\.\d+$/.test(id)) selected.add(id);
+  });
+}
+
 function fillTable(data) {
   // Limpiar las filas existentes, excepto la primera (thead)
   const rows = document.querySelectorAll('#mrcdd-table tbody tr');
@@ -204,36 +250,18 @@ function fillTable(data) {
       }
     }
   }
-
-
-  // Función para obtener el valor de un parámetro específico de la URL
-  function getParameterByName(name, url = window.location.href) {
-      name = name.replace(/[\[\]]/g, '\\$&');
-      var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
-          results = regex.exec(url);
-      if (!results) return null;
-      if (!results[2]) return '';
-      return decodeURIComponent(results[2].replace(/\+/g, ' '));
-  }
-
-  // Obtener el valor del parámetro 's'
-  var paramValue = getParameterByName('c');
-
-  // Verificar si el parámetro existe
-  if (paramValue) {
-      // Separar los valores
-      var valuesToCheck = paramValue.split('|');
-
-      // Marcar los checkboxes correspondientes
-      valuesToCheck.forEach(function(value) {
-          var checkbox = document.querySelector('input[type="checkbox"][name="' + value + '"]');
-          if (checkbox) {
-              checkbox.checked = true;
-          }
-      });
-  }
-
 }
+
+// Marcar o desmarcar un indicador lo apunta en la selección.
+document.getElementById('table-body').addEventListener('change', event => {
+  const checkbox = event.target;
+  if (!checkbox.classList.contains('indicator-checkbox')) return;
+  if (checkbox.checked) {
+    selected.add(checkbox.name);
+  } else {
+    selected.delete(checkbox.name);
+  }
+});
 
 function loadData(url, callback) {
   fetch(url)
@@ -257,7 +285,11 @@ function loadData(url, callback) {
 }
 
 // Cargando datos del yml:
-loadData('mrcdd.yml', fillTable);
+loadData('mrcdd.yml', loaded => {
+  entries = indexEntries(loaded);
+  readSelection();
+  fillTable(loaded);
+});
 
 // Mostrar el modal
 const generarBtn = document.querySelector('.btn-generar');
@@ -273,6 +305,8 @@ generarBtn.addEventListener('click', () => {
 
 const resetBtn = document.querySelector('.btn-reset');
 resetBtn.addEventListener('click', () => {
+
+  selected.clear();
 
   // Código JavaScript para desmarcar todos los checkbox con nombres de clase específicos
   const checkboxes = document.querySelectorAll('.form-check-input.indicator-checkbox');
@@ -291,16 +325,8 @@ const shareBtn = document.querySelector('.btn-share');
 shareBtn.addEventListener('click', () => {
 
 
-  // Recopilar los valores de los checkboxes marcados
-  var checkedValues = [];
-  document.querySelectorAll('.indicator-checkbox').forEach(function(checkbox) {
-      if (checkbox.checked) {
-          checkedValues.push(checkbox.name);
-      }
-  });
-
-  // Construir la URL
-  var url = window.location.href.split('?')[0] + '?c=' + checkedValues.join('|');
+  // Construir la URL con todo lo marcado, también lo que el filtro esconde
+  const url = window.location.href.split('?')[0] + '?c=' + selectedEntries().map(entry => entry.id).join('|');
 
   // Copiar la URL al portapapeles
   // Actualizar el atributo data-clipboard-text del botón con la URL
@@ -319,18 +345,15 @@ function generarTexto() {
   // Crear un objeto que contenga las áreas, competencias e indicadores seleccionados
   const selectedData = {};
 
-  // Recorrer los checkboxes seleccionados
-  const checkedCheckboxes = document.querySelectorAll(
-    'input.indicator-checkbox[type="checkbox"]:checked'
-  );
-  checkedCheckboxes.forEach(checkbox => {
-    const indicador = checkbox.getAttribute('data-indicador');
-    const indicadorData = checkbox.getAttribute('data-indicador-titulo');
-    const nivel = checkbox.getAttribute('data-nivel');
-    const competencia = checkbox.getAttribute('data-competencia');
-    const competenciaData = checkbox.getAttribute('data-competencia-titulo');
-    const area = checkbox.getAttribute('data-area');
-    const areaData = checkbox.getAttribute('data-area-titulo');
+  // Recorrer los indicadores marcados, también los que el filtro esconde
+  selectedEntries().forEach(entry => {
+    const indicador = String(entry.indicador.indicador);
+    const indicadorData = entry.indicador.titulo;
+    const nivel = entry.nivel.nivel;
+    const competencia = String(entry.competencia.competencia);
+    const competenciaData = entry.competencia.titulo;
+    const area = String(entry.area.area);
+    const areaData = entry.area.titulo;
 
     // Agregar el área, competencia y desempeño al objeto
     if (!Object.prototype.hasOwnProperty.call(selectedData, areaData)) {
@@ -428,10 +451,36 @@ new ClipboardJS('.btn-primary');
 // Inicializar Clipboard.js en el botón
 new ClipboardJS('#copyUrlButton');
 
+// Incrustada en otra aplicación (`?embed=1&origin=https://…`): sin pie ni
+// aviso de móvil, y con «Guardar», que devuelve la selección a esa aplicación.
+// `postMessage` solo la entrega si quien incrusta es de verdad ese origen.
+const embedOrigin = (() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('embed') !== '1') return null;
+  try {
+    const origin = new URL(params.get('origin') || '');
+    return /^https?:$/.test(origin.protocol) ? origin.origin : null;
+  } catch (error) {
+    return null;
+  }
+})();
+
+if (embedOrigin && window.parent !== window) {
+  document.body.classList.add('embed');
+  const saveBtn = document.querySelector('.btn-guardar');
+  saveBtn.classList.remove('d-none');
+  saveBtn.addEventListener('click', () => {
+    window.parent.postMessage(
+      { type: 'elidd:seleccion', c: selectedEntries().map(entry => entry.id).join('|') },
+      embedOrigin
+    );
+  });
+}
+
 // Muestra el modal si estamos en un movil
 document.addEventListener('DOMContentLoaded', function () {
   const isMobile = window.matchMedia('(max-width: 767px)').matches;
-  if (isMobile) {
+  if (isMobile && !document.body.classList.contains('embed')) {
     const mobileWarningModal = new bootstrap.Modal(
       document.getElementById('mobileWarningModal')
     );
