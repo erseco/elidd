@@ -179,3 +179,8 @@ td {
   padding: 10px;
   z-index: 1;
 }
+
+/* Incrustada en otra aplicación: sin pie, que lo pone quien incrusta */
+.embed .footer {
+  display: none;
+}

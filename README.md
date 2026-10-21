@@ -58,6 +58,26 @@ marco_referencia_competencia_digital_docente:
 - [jQuery](https://jquery.com/) : una biblioteca JavaScript rápida, pequeña y rica en características para la manipulación del DOM. 
 - [js-yaml](https://github.com/nodeca/js-yaml) : una biblioteca JavaScript para analizar y volcar YAML. 
 - [clipboard.js](https://clipboardjs.com/) : una biblioteca JavaScript ligera para copiar texto en el portapapeles.
+## Usarla desde otra aplicación
+
+- **Los datos.** `mrcdd.json` es el marco en JSON, con lo mismo que `mrcdd.yml`
+  (lo comprueba la CI). Con una versión etiquetada, jsDelivr lo sirve fijo e
+  inmutable: `https://cdn.jsdelivr.net/gh/erseco/elidd@v1.0.0/mrcdd.json`.
+  Si cambias el YAML, regenéralo con `npx js-yaml@4.1.0 mrcdd.yml > mrcdd.json`.
+- **La selección** va en `?c=`, con los indicadores separados por `|`:
+  `1.1.A1.2` es la competencia 1.1, nivel A1, indicador 2.
+- **Incrustada.** `?embed=1&origin=https://tu-aplicacion` (y, si quieres,
+  `&c=…` con la selección de partida) quita el pie y el aviso de móvil y añade
+  el botón **Guardar**, que envía a la ventana que la incrusta, y solo a ese
+  origen:
+
+  ```js
+  { type: 'elidd:seleccion', c: '1.1.A1.1|1.2.A2.3' }
+  ```
+
+  Quien la incrusta tiene que comprobar `event.origin` y el formato de `c`
+  antes de usarlo.
+
 ## Licencia
 
 Este proyecto se publica bajo la licencia [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) .
