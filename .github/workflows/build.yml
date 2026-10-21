@@ -23,7 +23,7 @@ jobs:
           sed -i "s|mrcdd.yml|mrcdd.yml$VERSION|g" script.js
         
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allow_empty_commit: true
